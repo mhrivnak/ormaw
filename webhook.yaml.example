@@ -1,0 +1,19 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration 
+metadata:
+  name: ormaw
+webhooks:
+  - name: ormaw.automationbroker.io
+    clientConfig: 
+      url: "https://192.168.122.1:4443/"
+      caBundle: "" # take a PEM-encoded CA cert and base64 encode it before adding it here
+    rules: 
+    - operations: 
+      - CREATE
+      apiGroups:
+      - "*"
+      apiVersions:
+      - "*"
+      resources:
+      - "*/*"
+    failurePolicy: Fail
