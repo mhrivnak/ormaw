@@ -9,8 +9,19 @@ import (
 	"net/http/httputil"
 
 	"k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
+// patch - represents a JSONPatch
+type patch struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value"`
+}
+
+// dumper - dumps the incoming request to stdout and also creates a patch for
+// the OwnerReferences
 func dumper(w http.ResponseWriter, r *http.Request) {
 	dump, err := httputil.DumpRequest(r, true)
 	if err != nil {
@@ -33,8 +44,19 @@ func dumper(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", "application/json")
 
+	pt := v1beta1.PatchTypeJSONPatch
+	sp, err := makePatch(&aReview)
+	if err != nil {
+		panic(err)
+	}
+
 	wrapper := v1beta1.AdmissionReview{
-		Response: &v1beta1.AdmissionResponse{UID: aReview.Request.UID, Allowed: true},
+		Response: &v1beta1.AdmissionResponse{
+			UID:       aReview.Request.UID,
+			Allowed:   true,
+			Patch:     sp,
+			PatchType: &pt,
+		},
 	}
 
 	respBody, err := json.Marshal(wrapper)
@@ -42,6 +64,29 @@ func dumper(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	w.Write(respBody)
+}
+
+// makePatch - creates and returns a patch, encoded as a JSON byte array, based
+// on the passed-in review.
+func makePatch(aReview *v1beta1.AdmissionReview) ([]byte, error) {
+	owner := metav1.OwnerReference{
+		APIVersion: "v1alpha1",
+		Kind:       "Foo",
+		Name:       "example-foo",
+		UID:        types.UID("97388dad-6da8-11e8-a81d-847297420507"),
+	}
+
+	p := patch{
+		Op:    "add",
+		Path:  "/metadata/OwnerReferences",
+		Value: []metav1.OwnerReference{owner},
+	}
+	sp, err := json.Marshal([]patch{p})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(sp))
+	return sp, nil
 }
 
 func main() {
