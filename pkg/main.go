@@ -11,25 +11,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 )
 
-type Request struct {
-	UID string
-}
-
-type ReqBody struct {
-	Request Request
-}
-
-type RespWrapper struct {
-	Kind       string `json:"kind"`
-	ApiVersion string `json:"apiVersion"`
-	Response   AResp  `json:"response"`
-}
-
-type AResp struct {
-	UID     string `json:"uid"`
-	Allowed bool   `json:"allowed"`
-}
-
 func dumper(w http.ResponseWriter, r *http.Request) {
 	dump, err := httputil.DumpRequest(r, true)
 	if err != nil {
@@ -45,7 +26,6 @@ func dumper(w http.ResponseWriter, r *http.Request) {
 
 	aReview := v1beta1.AdmissionReview{}
 
-	//areq := ReqBody{}
 	err = json.Unmarshal(data, &aReview)
 	if err != nil {
 		panic(err)
