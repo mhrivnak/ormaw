@@ -26,7 +26,7 @@
 
 
 [[constraint]]
-  branch = "master"
+  branch = "release-1.10"
   name = "k8s.io/api"
 
 [prune]
@@ -34,5 +34,9 @@
   unused-packages = true
 
 [[constraint]]
-  branch = "master"
+  branch = "release-1.10"
   name = "k8s.io/apimachinery"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "7.0.0"
