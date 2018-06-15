@@ -25,6 +25,7 @@ type patch struct {
 	Value interface{} `json:"value"`
 }
 
+// session - representes an API connection and any other necessary context
 type session struct {
 	Clientset  *kubernetes.Clientset
 	TargetType string
@@ -51,11 +52,6 @@ func (s *session) dumper(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	owner, err := s.getOwner(&aReview)
-	if err != nil {
-		panic(err)
-	}
-
 	wrapper := v1beta1.AdmissionReview{
 		Response: &v1beta1.AdmissionResponse{
 			UID:     aReview.Request.UID,
@@ -63,7 +59,12 @@ func (s *session) dumper(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// If an owner reference was found on the ServiceAccount, add a patch
+	owner, err := s.getOwner(&aReview)
+	if err != nil {
+		panic(err)
+	}
+
+	// If an appropriate OwnerReference was found on the ServiceAccount, add a patch
 	if owner != nil {
 		sp, err := makePatch(owner)
 		if err != nil {
@@ -83,12 +84,14 @@ func (s *session) dumper(w http.ResponseWriter, r *http.Request) {
 	w.Write(respBody)
 }
 
+// getOwner - uses the k8s API to get the OwnerReference of the target type
+// from the ServiceAccount. Returns nil if not found.
 func (s *session) getOwner(aReview *v1beta1.AdmissionReview) (*metav1.OwnerReference, error) {
-	api := s.Clientset.CoreV1()
 	parts := strings.Split(aReview.Request.UserInfo.Username, ":")
 	// If it's a ServiceAccount, the username will be in the form
 	// "system:serviceaccount:<namespace>:<name>"
 	if len(parts) == 4 && parts[0] == "system" && parts[1] == "serviceaccount" {
+		api := s.Clientset.CoreV1()
 		user, err := api.ServiceAccounts(parts[2]).Get(parts[3], metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -109,6 +112,7 @@ func (s *session) getOwner(aReview *v1beta1.AdmissionReview) (*metav1.OwnerRefer
 
 // makePatch - creates and returns a patch, encoded as a JSON byte array, based
 // on the passed-in review. It will overwrite any existing OwnerReference.
+// TODO: make this able to add rather than replace
 func makePatch(owner *metav1.OwnerReference) ([]byte, error) {
 	p := patch{
 		Op:    "add",
@@ -135,7 +139,11 @@ func main() {
 	if err != nil {
 		log.Fatal("NewForConfig: ", err)
 	}
-	session := session{Clientset: clientset, TargetType: "Foo"}
+	crd := os.Getenv("CRD")
+	if crd == "" {
+		log.Fatal("You must provide the name of a CRD in the env var \"CRD\"")
+	}
+	session := session{Clientset: clientset, TargetType: crd}
 
 	// Serve the webhook endpoint
 	http.HandleFunc("/", session.dumper)
