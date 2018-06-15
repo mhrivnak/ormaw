@@ -6,6 +6,7 @@ webhooks:
   - name: ormaw.automationbroker.io
     clientConfig: 
       url: "https://192.168.122.1:4443/"
+      # TODO: figure out which CA cert to use in production and how to get certs signed
       caBundle: "" # take a PEM-encoded CA cert and base64 encode it before adding it here
     rules: 
     - operations: 
@@ -16,4 +17,5 @@ webhooks:
       - "*"
       resources:
       - "*/*"
+    # TODO: figure out if this should be Fail or Ignore in production
     failurePolicy: Fail
